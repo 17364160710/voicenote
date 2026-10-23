@@ -1,0 +1,14 @@
+# Xcode
+build/
+DerivedData/
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+*.xcuserstate
+*.ipa
+Payload/
+.DS_Store
+
+# 本地环境
+.venv/
+__pycache__/
