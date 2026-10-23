@@ -63,9 +63,25 @@ xcodebuild -project VoiceNote.xcodeproj -scheme VoiceNote \
 
 产物是**未签名** IPA，靠越狱环境绕过签名校验：
 
-1. **TrollStore**（iOS 14.0 ~ 16.6.1 首选）：把 ipa 传到手机，用 TrollStore 打开安装，永久有效
+1. **TrollStore**（iOS 14.0 ~ 16.6.1 首选）：把 ipa 传到手机，用 TrollStore 打开安装，永久有效，它会自动做 ad-hoc 签名
 2. **AppSync Unified + Filza**：装了 AppSync 后，Filza 里点 ipa 直接安装
 3. **命令行**：`ipainstaller VoiceNote-unsigned.ipa`（越狱包管理器里装 `ipainstaller`）
+
+国内直连 GitHub Release 经常被重置，下载时给链接加个镜像前缀即可：
+
+```
+https://gh-proxy.com/https://github.com/17364160710/voicenote/releases/download/build-latest/VoiceNote-unsigned.ipa
+```
+
+**装完打不开 / 一闪退**：说明设备对签名校验更严（A12 以上带 PAC）。两个办法：
+- 用 TrollStore 装（它负责签名）
+- 或者在电脑上重新 fakesign 再打包：
+
+```bash
+unzip VoiceNote-unsigned.ipa -d tmp
+ldid -S tmp/Payload/VoiceNote.app/VoiceNote
+cd tmp && zip -qry ../VoiceNote-signed.ipa Payload
+```
 
 首次进入 App 会请求「麦克风」和「语音识别」权限。如果越狱环境下弹窗被吞掉，去 设置 → 隐私 里手动打开，或在 App 内提示页点「去设置」。
 
