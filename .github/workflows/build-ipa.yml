@@ -12,7 +12,7 @@ permissions:
 jobs:
   build-ipa:
     name: Build VoiceNote.ipa
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 30
 
     steps:
@@ -33,6 +33,13 @@ jobs:
           {
             echo "###### 1. xcodegen generate"
             xcodegen generate
+            PBX=VoiceNote.xcodeproj/project.pbxproj
+            if grep -q "objectVersion = 77;" "$PBX"; then
+              echo "downgrade objectVersion 77 -> 56"
+              sed -i "" "s/objectVersion = 77;/objectVersion = 56;/" "$PBX"
+              sed -i "" "s/compatibilityVersion = \"Xcode 16.0\";/compatibilityVersion = \"Xcode 14.0\";/" "$PBX"
+            fi
+            grep -m1 objectVersion "$PBX"
             echo
             echo "###### 2. xcodebuild -list"
             xcodebuild -list -project VoiceNote.xcodeproj
