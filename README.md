@@ -85,6 +85,43 @@ cd tmp && zip -qry ../VoiceNote-signed.ipa Payload
 
 首次进入 App 会请求「麦克风」和「语音识别」权限。如果越狱环境下弹窗被吞掉，去 设置 → 隐私 里手动打开，或在 App 内提示页点「去设置」。
 
+## 数据与卸载（重要）
+
+### 数据只写在一个地方
+
+App 的所有持久化数据都在自己的沙盒内，不写沙盒外、不写 UserDefaults、不写钥匙串：
+
+```
+Documents/notes.json     备忘索引（标题、转写文字、时间、时长）
+Documents/Audio/*.caf    录音文件，一条备忘一个文件
+```
+
+### 三道删除保障
+
+| 场景 | 行为 |
+|---|---|
+| 列表左滑删除 / 详情页删除 | 先删索引记录并落盘，再删对应 `.caf` 文件，两者不留残渣 |
+| 清空所有备忘（右上角 `⋯` → 清空所有备忘） | 删光全部录音 + 删除索引文件，二次确认里会显示条数与占用大小 |
+| 启动时自动清理孤儿文件 | 录音途中 App 被杀进程会留下没有对应备忘的 `.caf`，每次启动扫描并删除。**索引读取失败时跳过清理**，避免误删 |
+
+### 卸载
+
+**iOS 的机制本身就会在卸载 App 时整体删除它的沙盒容器**——`notes.json` 和所有 `.caf` 都会一起消失，不需要 App 自己做任何事。TrollStore、AppSync + Filza、`ipainstaller` 三种装法的行为一致。
+
+唯一会残留的是**系统级的隐私授权记录**（TCC），不在 App 沙盒里，任何 App 卸载都不会清它：
+
+- 常规做法：设置 → 隐私与安全性 → 麦克风 / 语音识别，里面的「语音速记」条目会被系统标记为失效，重装后继续沿用
+- 想彻底抹掉：越狱机 SSH 进去清 `TCC.db` 里 `com.stiker.voicenote` 的记录，一般没必要
+
+如果越狱工具异常卸载导致容器没被删（极少见），可以手动定位后删除：
+
+```bash
+# 用 root 或 mobile 身份执行
+grep -rl "com.stiker.voicenote" /var/mobile/Containers/Data/Application/*/.com.apple.mobile_container_manager.metadata.plist
+# 输出里那一串 UUID 目录就是容器，直接删掉
+rm -rf /var/mobile/Containers/Data/Application/<UUID>
+```
+
 ## 已知限制
 
 - **未签名包的能力边界**：拿不到 APNs 推送、iCloud 同步、HealthKit 等需要 entitlement 的能力；本 App 全部是本地功能，不受影响
@@ -94,4 +131,5 @@ cd tmp && zip -qry ../VoiceNote-signed.ipa Payload
 
 ## 版本
 
+v1.1.0 — 增加孤儿文件清理、清空全部数据、磁盘占用显示
 v1.0.0 — 首个可安装版本

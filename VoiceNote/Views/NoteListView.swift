@@ -4,6 +4,7 @@ struct NoteListView: View {
     @EnvironmentObject private var store: NoteStore
     @State private var query = ""
     @State private var showRecorder = false
+    @State private var showResetConfirm = false
 
     private var filteredNotes: [Note] {
         let keyword = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -25,9 +26,33 @@ struct NoteListView: View {
             }
             .navigationTitle("语音速记")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Button {
+                            showResetConfirm = true
+                        } label: {
+                            Label("清空所有备忘", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                }
+            }
             .safeAreaInset(edge: .bottom) { recordBar }
             .fullScreenCover(isPresented: $showRecorder) {
                 RecordingView().environmentObject(store)
+            }
+            .alert(isPresented: $showResetConfirm) {
+                Alert(
+                    title: Text("清空所有备忘？"),
+                    message: Text("\(store.notes.count) 条备忘、共 \(ByteFormat.string(store.storageBytes)) 会从设备和磁盘上彻底删除，无法恢复。"),
+                    primaryButton: .destructive(Text("全部删除")) {
+                        store.resetAll()
+                        query = ""
+                    },
+                    secondaryButton: .cancel(Text("取消"))
+                )
             }
         }
         .navigationViewStyle(StackNavigationViewStyle())
@@ -44,10 +69,10 @@ struct NoteListView: View {
                     }
                 }
                 .onDelete { offsets in
-                    offsets.map { filteredNotes[$0] }.forEach { store.delete($0) }
+                    store.delete(at: offsets, from: filteredNotes)
                 }
             } header: {
-                Text("\(filteredNotes.count) 条备忘 · 共 \(TimeFormat.friendly(store.totalDuration))")
+                Text("\(filteredNotes.count) 条备忘 · 共 \(TimeFormat.friendly(store.totalDuration)) · 占用 \(ByteFormat.string(store.storageBytes))")
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
                     .textCase(nil)

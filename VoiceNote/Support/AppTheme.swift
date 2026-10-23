@@ -22,8 +22,7 @@ enum AppTheme {
     }
 }
 
-enum TimeFormat {
-    static func clock(_ interval: TimeInterval) -> String {
+enum TimeFormat {    static func clock(_ interval: TimeInterval) -> String {
         let total = max(0, Int(interval.rounded()))
         let minutes = total / 60
         let seconds = total % 60
@@ -55,5 +54,14 @@ enum TimeFormat {
             formatter.dateFormat = "yyyy年M月d日"
         }
         return formatter.string(from: date)
+    }
+}
+
+enum ByteFormat {
+    static func string(_ bytes: Int) -> String {
+        if bytes < 1024 { return "\(bytes) B" }
+        let kb = Double(bytes) / 1024.0
+        if kb < 1024 { return String(format: "%.0f KB", kb) }
+        return String(format: "%.1f MB", kb / 1024.0)
     }
 }
