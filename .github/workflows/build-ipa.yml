@@ -6,6 +6,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-ipa:
     name: Build VoiceNote.ipa
@@ -64,3 +67,16 @@ jobs:
           path: VoiceNote-unsigned.ipa
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish release (public download link)
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-latest
+          name: 语音速记 最新构建
+          body: |
+            由 GitHub Actions 自动构建的**未签名** IPA，需在越狱设备上安装。
+
+            安装方式：TrollStore / AppSync Unified + Filza / `ipainstaller`
+          files: VoiceNote-unsigned.ipa
+          prerelease: true

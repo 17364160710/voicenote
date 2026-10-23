@@ -43,7 +43,11 @@ git remote add origin https://github.com/<你的账号>/voicenote.git
 git push -u origin main
 ```
 
-推上去后 GitHub Actions 自动跑，约 3~5 分钟，在 Actions → 这次运行 → Artifacts 下载 `VoiceNote-unsigned-ipa`，里面就是 `VoiceNote-unsigned.ipa`。
+推上去后 GitHub Actions 自动跑，约 3~5 分钟。两种拿包方式：
+
+- **免登录直链**：Releases 页面的 `build-latest` 标签下有 `VoiceNote-unsigned.ipa`，链接形如
+  `https://github.com/<账号>/<仓库>/releases/download/build-latest/VoiceNote-unsigned.ipa`
+- **Artifacts**：Actions → 这次运行 → Artifacts → `VoiceNote-unsigned-ipa`（zip，解压得 ipa）
 
 **本地（有 Mac 时）**
 
