@@ -27,62 +27,57 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      - name: Generate Xcode project
-        run: |
-          xcodegen generate
-          ls -la
-          xcodebuild -list -project VoiceNote.xcodeproj
-
-      - name: Build (code signing disabled)
+      - name: Build and package
         run: |
           set -o pipefail
-          xcodebuild \
-            -project VoiceNote.xcodeproj \
-            -scheme VoiceNote \
-            -configuration Release \
-            -sdk iphoneos \
-            -destination 'generic/platform=iOS' \
-            -derivedDataPath build \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            build 2>&1 | tee build.log
+          {
+            echo "###### 1. xcodegen generate"
+            xcodegen generate
+            echo
+            echo "###### 2. xcodebuild -list"
+            xcodebuild -list -project VoiceNote.xcodeproj
+            echo
+            echo "###### 3. xcodebuild build"
+            xcodebuild \
+              -project VoiceNote.xcodeproj \
+              -scheme VoiceNote \
+              -configuration Release \
+              -sdk iphoneos \
+              -destination 'generic/platform=iOS' \
+              -derivedDataPath build \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=NO \
+              build
+            echo
+            echo "###### 4. package"
+            APP_PATH="build/Build/Products/Release-iphoneos/VoiceNote.app"
+            test -d "$APP_PATH"
+            rm -rf Payload VoiceNote-unsigned.ipa
+            mkdir -p Payload
+            cp -R "$APP_PATH" Payload/
+            zip -qry VoiceNote-unsigned.ipa Payload
+            ls -lh VoiceNote-unsigned.ipa
+            /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "Payload/VoiceNote.app/Info.plist"
+            /usr/libexec/PlistBuddy -c "Print :MinimumOSVersion" "Payload/VoiceNote.app/Info.plist"
+          } 2>&1 | tee build.log
 
-      - name: Report failure as commit comment
+      - name: Post log when failed
         if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           {
-            echo '--- error lines ---'
-            grep -n "error:" build.log 2>/dev/null | head -40 || true
-            echo '--- tail ---'
-            tail -n 60 build.log 2>/dev/null || true
-          } > failure.txt
-          {
+            echo "构建失败,以下为关键输出。"
             echo '```'
-            head -c 5500 failure.txt
-            echo
+            grep -n -E "error:|Error:|error " build.log | head -40 || true
+            echo '--- tail 80 ---'
+            tail -n 80 build.log || true
             echo '```'
           } > body.md
-          gh api -X POST "repos/${{ github.repository }}/comments" \
-            -F commit_id="${{ github.sha }}" \
-            -F body=@body.md || true
-
-      - name: Package unsigned IPA
-        run: |
-          APP_PATH="build/Build/Products/Release-iphoneos/VoiceNote.app"
-          if [ ! -d "$APP_PATH" ]; then
-            echo "::error::找不到编译产物: $APP_PATH"
-            exit 1
-          fi
-          rm -rf Payload VoiceNote-unsigned.ipa
-          mkdir -p Payload
-          cp -R "$APP_PATH" Payload/
-          zip -qry VoiceNote-unsigned.ipa Payload
-          ls -lh VoiceNote-unsigned.ipa
-          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "Payload/VoiceNote.app/Info.plist"
-          /usr/libexec/PlistBuddy -c "Print :MinimumOSVersion" "Payload/VoiceNote.app/Info.plist"
+          head -c 12000 body.md > body_cut.md
+          gh api -X POST "repos/${{ github.repository }}/commits/${{ github.sha }}/comments" \
+            -F body=@body_cut.md && echo "comment posted"
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
@@ -93,7 +88,7 @@ jobs:
           retention-days: 30
 
       - name: Publish release (public download link)
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && success()
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-latest
