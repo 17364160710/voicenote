@@ -28,7 +28,10 @@ jobs:
         run: brew install xcodegen
 
       - name: Generate Xcode project
-        run: xcodegen generate
+        run: |
+          xcodegen generate
+          ls -la
+          xcodebuild -list -project VoiceNote.xcodeproj
 
       - name: Build (code signing disabled)
         run: |
@@ -43,7 +46,28 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            build
+            build 2>&1 | tee build.log
+
+      - name: Report failure as commit comment
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo '--- error lines ---'
+            grep -n "error:" build.log 2>/dev/null | head -40 || true
+            echo '--- tail ---'
+            tail -n 60 build.log 2>/dev/null || true
+          } > failure.txt
+          {
+            echo '```'
+            head -c 5500 failure.txt
+            echo
+            echo '```'
+          } > body.md
+          gh api -X POST "repos/${{ github.repository }}/comments" \
+            -F commit_id="${{ github.sha }}" \
+            -F body=@body.md || true
 
       - name: Package unsigned IPA
         run: |
