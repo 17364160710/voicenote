@@ -4,7 +4,21 @@ struct NoteListView: View {
     @EnvironmentObject private var store: NoteStore
     @State private var query = ""
     @State private var showRecorder = false
-    @State private var showResetConfirm = false
+    @State private var activeAlert: ListAlert?
+
+    private enum ListAlert: Identifiable {
+        case reset
+        case delete(Note)
+
+        var id: String {
+            switch self {
+            case .reset:
+                return "reset"
+            case .delete(let note):
+                return "delete-" + note.id.uuidString
+            }
+        }
+    }
 
     private var filteredNotes: [Note] {
         let keyword = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -30,7 +44,7 @@ struct NoteListView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
                         Button {
-                            showResetConfirm = true
+                            activeAlert = .reset
                         } label: {
                             Label("清空所有备忘", systemImage: "trash")
                         }
@@ -43,16 +57,28 @@ struct NoteListView: View {
             .fullScreenCover(isPresented: $showRecorder) {
                 RecordingView().environmentObject(store)
             }
-            .alert(isPresented: $showResetConfirm) {
-                Alert(
-                    title: Text("清空所有备忘？"),
-                    message: Text("\(store.notes.count) 条备忘、共 \(ByteFormat.string(store.storageBytes)) 会从设备和磁盘上彻底删除，无法恢复。"),
-                    primaryButton: .destructive(Text("全部删除")) {
-                        store.resetAll()
-                        query = ""
-                    },
-                    secondaryButton: .cancel(Text("取消"))
-                )
+            .alert(item: $activeAlert) { item -> Alert in
+                switch item {
+                case .reset:
+                    return Alert(
+                        title: Text("清空所有备忘？"),
+                        message: Text("\(store.notes.count) 条备忘、共 \(ByteFormat.string(store.storageBytes)) 会从设备和磁盘上彻底删除，无法恢复。"),
+                        primaryButton: .destructive(Text("全部删除")) {
+                            store.resetAll()
+                            query = ""
+                        },
+                        secondaryButton: .cancel(Text("取消"))
+                    )
+                case .delete(let note):
+                    return Alert(
+                        title: Text("删除这条备忘？"),
+                        message: Text("「\(note.title)」的文字和录音文件会一并删除，无法恢复。"),
+                        primaryButton: .destructive(Text("删除")) {
+                            store.delete(note)
+                        },
+                        secondaryButton: .cancel(Text("取消"))
+                    )
+                }
             }
         }
         .navigationViewStyle(StackNavigationViewStyle())
@@ -67,9 +93,13 @@ struct NoteListView: View {
                     NavigationLink(destination: NoteDetailView(note: note).environmentObject(store)) {
                         NoteRow(note: note)
                     }
-                }
-                .onDelete { offsets in
-                    store.delete(at: offsets, from: filteredNotes)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button(role: .destructive) {
+                            activeAlert = .delete(note)
+                        } label: {
+                            Label("删除", systemImage: "trash")
+                        }
+                    }
                 }
             } header: {
                 Text("\(filteredNotes.count) 条备忘 · 共 \(TimeFormat.friendly(store.totalDuration)) · 占用 \(ByteFormat.string(store.storageBytes))")
